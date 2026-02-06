@@ -1,0 +1,9 @@
+export { default as HomeHeader } from "./HomeHeader";
+export { default as HeroSection } from "./HeroSection";
+export { default as DematBenefitsSection } from "./DematBenefitsSection";
+export { default as ServicesSection } from "./ServicesSection";
+export { default as AboutSection } from "./AboutSection";
+export { default as TradingAccountSection } from "./TradingAccountSection";
+export { default as TestimonialsSection } from "./TestimonialsSection";
+export { default as PartnershipSection } from "./PartnershipSection";
+export { default as HomeFooter } from "./HomeFooter";
