@@ -58,11 +58,16 @@ export default function ContactForm() {
     return Object.keys(nextErrors).length === 0;
   };
 
-  const handleSubmit = (event: React.SyntheticEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: { preventDefault: () => void }) => {
     event.preventDefault();
-    setStatus("");
     if (validate()) {
-      setStatus("Thanks! We will contact you shortly.");
+      const response = await fetch("/api/contact", {
+        // Actually calls API!
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+      // ... handles response and saves to database
     }
   };
 

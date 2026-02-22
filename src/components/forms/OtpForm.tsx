@@ -1,254 +1,292 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 
-type OtpFormState = {
-  countryCode: string;
-  mobile: string;
-  otp: string[];
-};
+type OtpStep = "ENTER_MOBILE" | "VERIFY_OTP" | "SUCCESS";
 
-type OtpErrors = {
-  mobile?: string;
-  otp?: string;
-};
-
-const MOBILE_REGEX = /^\d{10}$/;
-const OTP_DIGITS = [0, 1, 2, 3];
 const COUNTRY_CODES = [
   { code: "+91", label: "India", flag: "🇮🇳" },
   { code: "+1", label: "United States", flag: "🇺🇸" },
-  { code: "+1", label: "Canada", flag: "🇨🇦" },
   { code: "+44", label: "United Kingdom", flag: "🇬🇧" },
   { code: "+61", label: "Australia", flag: "🇦🇺" },
-  { code: "+64", label: "New Zealand", flag: "🇳🇿" },
-  { code: "+49", label: "Germany", flag: "🇩🇪" },
-  { code: "+33", label: "France", flag: "🇫🇷" },
-  { code: "+39", label: "Italy", flag: "🇮🇹" },
-  { code: "+34", label: "Spain", flag: "🇪🇸" },
-  { code: "+31", label: "Netherlands", flag: "🇳🇱" },
-  { code: "+46", label: "Sweden", flag: "🇸🇪" },
-  { code: "+47", label: "Norway", flag: "🇳🇴" },
-  { code: "+45", label: "Denmark", flag: "🇩🇰" },
-  { code: "+41", label: "Switzerland", flag: "🇨🇭" },
-  { code: "+43", label: "Austria", flag: "🇦🇹" },
-  { code: "+32", label: "Belgium", flag: "🇧🇪" },
-  { code: "+351", label: "Portugal", flag: "🇵🇹" },
-  { code: "+353", label: "Ireland", flag: "🇮🇪" },
-  { code: "+7", label: "Russia", flag: "🇷🇺" },
-  { code: "+380", label: "Ukraine", flag: "🇺🇦" },
-  { code: "+48", label: "Poland", flag: "🇵🇱" },
-  { code: "+420", label: "Czech Republic", flag: "🇨🇿" },
-  { code: "+36", label: "Hungary", flag: "🇭🇺" },
-  { code: "+30", label: "Greece", flag: "🇬🇷" },
-  { code: "+90", label: "Turkey", flag: "🇹🇷" },
-  { code: "+971", label: "United Arab Emirates", flag: "🇦🇪" },
-  { code: "+966", label: "Saudi Arabia", flag: "🇸🇦" },
-  { code: "+965", label: "Kuwait", flag: "🇰🇼" },
-  { code: "+974", label: "Qatar", flag: "🇶🇦" },
-  { code: "+973", label: "Bahrain", flag: "🇧🇭" },
-  { code: "+968", label: "Oman", flag: "🇴🇲" },
-  { code: "+20", label: "Egypt", flag: "🇪🇬" },
-  { code: "+27", label: "South Africa", flag: "🇿🇦" },
-  { code: "+234", label: "Nigeria", flag: "🇳🇬" },
-  { code: "+254", label: "Kenya", flag: "🇰🇪" },
-  { code: "+92", label: "Pakistan", flag: "🇵🇰" },
-  { code: "+880", label: "Bangladesh", flag: "🇧🇩" },
-  { code: "+94", label: "Sri Lanka", flag: "🇱🇰" },
-  { code: "+977", label: "Nepal", flag: "🇳🇵" },
-  { code: "+975", label: "Bhutan", flag: "🇧🇹" },
   { code: "+86", label: "China", flag: "🇨🇳" },
   { code: "+81", label: "Japan", flag: "🇯🇵" },
-  { code: "+82", label: "South Korea", flag: "🇰🇷" },
-  { code: "+66", label: "Thailand", flag: "🇹🇭" },
+  { code: "+49", label: "Germany", flag: "🇩🇪" },
+  { code: "+33", label: "France", flag: "🇫🇷" },
+  { code: "+971", label: "UAE", flag: "🇦🇪" },
   { code: "+65", label: "Singapore", flag: "🇸🇬" },
-  { code: "+60", label: "Malaysia", flag: "🇲🇾" },
-  { code: "+62", label: "Indonesia", flag: "🇮🇩" },
-  { code: "+63", label: "Philippines", flag: "🇵🇭" },
-  { code: "+84", label: "Vietnam", flag: "🇻🇳" },
-  { code: "+852", label: "Hong Kong", flag: "🇭🇰" },
-  { code: "+886", label: "Taiwan", flag: "🇹🇼" },
-  { code: "+55", label: "Brazil", flag: "🇧🇷" },
-  { code: "+52", label: "Mexico", flag: "🇲🇽" },
-  { code: "+54", label: "Argentina", flag: "🇦🇷" },
-  { code: "+57", label: "Colombia", flag: "🇨🇴" },
-  { code: "+56", label: "Chile", flag: "🇨🇱" },
-  { code: "+51", label: "Peru", flag: "🇵🇪" },
 ];
 
 export default function OtpForm() {
-  const [form, setForm] = useState<OtpFormState>({
-    countryCode: "+91",
-    mobile: "",
-    otp: ["", "", "", ""],
-  });
+  const [countryCode, setCountryCode] = useState("+91");
+  const [mobile, setMobile] = useState("");
+  const [otp, setOtp] = useState(["", "", "", ""]);
+  const [step, setStep] = useState<OtpStep>("ENTER_MOBILE");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [resendTimer, setResendTimer] = useState(0);
+  const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
 
-  const [errors, setErrors] = useState<OtpErrors>({});
-  const [status, setStatus] = useState<string>("");
-
-  const validate = () => {
-    const nextErrors: OtpErrors = {};
-    if (!form.mobile.trim()) {
-      nextErrors.mobile = "Mobile number is required.";
-    } else if (!MOBILE_REGEX.test(form.mobile.trim())) {
-      nextErrors.mobile = "Enter a valid 10-digit mobile number.";
-    }
-
-    setErrors(nextErrors);
-    return Object.keys(nextErrors).length === 0;
+  const startTimer = () => {
+    setResendTimer(60);
+    const interval = setInterval(() => {
+      setResendTimer((prev) => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
   };
 
-  const handleSubmit = (event: React.SyntheticEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setStatus("");
-    if (validate()) {
-      setStatus("Validation passed. OTP sending requires backend integration.");
+  const handleSendOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!/^\d{10}$/.test(mobile)) {
+      setError("Please enter exactly 10 digits");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+
+    try {
+      const response = await fetch("/api/otp/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ countryCode, mobile }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error);
+      }
+
+      setStep("VERIFY_OTP");
+      startTimer();
+      setTimeout(() => otpRefs.current[0]?.focus(), 100);
+    } catch (err: any) {
+      setError(err.message || "Failed to send OTP");
+    } finally {
+      setLoading(false);
     }
   };
 
-  const isMobileValid = MOBILE_REGEX.test(form.mobile.trim());
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
 
-  return (
-    <form className="mt-6 space-y-4" onSubmit={handleSubmit} noValidate>
-      <div className="space-y-2">
-        <label htmlFor="otp-mobile" className="text-xs text-slate-400">
-          Mobile Number
-        </label>
-        <div className="flex flex-col gap-2 sm:flex-row">
-          <div className="w-full sm:w-44">
-            <label
-              htmlFor="otp-country"
-              className="text-xs font-medium text-slate-300"
-            >
-              Country
-            </label>
-            <div className="relative mt-2">
-              <select
-                id="otp-country"
-                aria-label="Country code"
-                value={form.countryCode}
-                onChange={(event) =>
-                  setForm((prev) => ({
-                    ...prev,
-                    countryCode: event.target.value,
-                  }))
-                }
-                className="w-full appearance-none rounded-xl border border-slate-800 bg-slate-950/80 px-3 py-3 pr-9 text-sm text-white focus:border-brand-500 outline-none"
-              >
-                {COUNTRY_CODES.map((country) => (
-                  <option
-                    key={`${country.label}-${country.code}`}
-                    value={country.code}
-                  >
-                    {country.flag} {country.label} ({country.code})
-                  </option>
-                ))}
-              </select>
-              <svg
-                aria-hidden="true"
-                viewBox="0 0 20 20"
-                className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
-                fill="currentColor"
-              >
-                <path d="M5.5 7.5 10 12l4.5-4.5" />
-              </svg>
-            </div>
-          </div>
+    const otpValue = otp.join("");
+    if (otpValue.length !== 4) {
+      setError("Please enter all 4 digits");
+      return;
+    }
 
-          <div className="flex-1">
-            <label
-              htmlFor="otp-mobile"
-              className="text-xs font-medium text-slate-300"
-            >
-              Phone Number
-            </label>
-            <div className="mt-2">
-              <input
-                id="otp-mobile"
-                name="mobile"
-                type="tel"
-                placeholder="9876543210"
-                autoComplete="tel"
-                inputMode="numeric"
-                pattern="^\d{10}$"
-                maxLength={10}
-                value={form.mobile}
-                onChange={(event) => {
-                  const onlyDigits = event.target.value.replace(/\D/g, "");
-                  setForm((prev) => ({ ...prev, mobile: onlyDigits }));
-                }}
-                className={`w-full rounded-xl border bg-slate-950 px-4 py-3 text-sm text-white placeholder:text-slate-600 focus:outline-none ${
-                  errors.mobile ? "border-rose-500" : "border-slate-700"
-                }`}
-                aria-invalid={Boolean(errors.mobile)}
-                aria-describedby={
-                  errors.mobile ? "otp-mobile-error" : undefined
-                }
-                required
-              />
-            </div>
-            {errors.mobile ? (
-              <p id="otp-mobile-error" className="mt-1 text-xs text-rose-400">
-                {errors.mobile}
-              </p>
-            ) : null}
-          </div>
+    setLoading(true);
+    setError("");
+
+    try {
+      const response = await fetch("/api/otp/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ countryCode, mobile, otp: otpValue }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error);
+      }
+
+      setStep("SUCCESS");
+    } catch (err: any) {
+      setError(err.message || "Invalid OTP");
+      setOtp(["", "", "", ""]);
+      otpRefs.current[0]?.focus();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleOtpChange = (index: number, value: string) => {
+    if (!/^\d*$/.test(value)) return;
+
+    const newOtp = [...otp];
+    newOtp[index] = value.slice(-1);
+    setOtp(newOtp);
+
+    if (value && index < 3) {
+      otpRefs.current[index + 1]?.focus();
+    }
+  };
+
+  const handleKeyDown = (index: number, e: React.KeyboardEvent) => {
+    if (e.key === "Backspace" && !otp[index] && index > 0) {
+      otpRefs.current[index - 1]?.focus();
+    }
+  };
+
+  const handleResend = async () => {
+    if (resendTimer > 0) return;
+    setOtp(["", "", "", ""]);
+    await handleSendOtp(new Event("submit") as any);
+  };
+
+  const handleEditNumber = () => {
+    setStep("ENTER_MOBILE");
+    setOtp(["", "", "", ""]);
+    setError("");
+  };
+
+  if (step === "SUCCESS") {
+    return (
+      <div className="text-center space-y-4">
+        <div className="w-20 h-20 mx-auto rounded-full bg-green-100 flex items-center justify-center">
+          <svg
+            className="w-10 h-10 text-green-600"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M5 13l4 4L19 7"
+            />
+          </svg>
         </div>
+        <h3 className="text-xl font-bold text-white">Verified Successfully!</h3>
+        <p className="text-slate-400">
+          {countryCode} {mobile} has been verified
+        </p>
+        <button
+          onClick={() => {
+            setStep("ENTER_MOBILE");
+            setMobile("");
+            setOtp(["", "", "", ""]);
+          }}
+          className="text-purple-400 hover:text-purple-300 text-sm"
+        >
+          Verify another number
+        </button>
       </div>
+    );
+  }
 
-      <div className="space-y-2">
-        <span className="text-xs text-slate-400">OTP</span>
-        <div className="grid grid-cols-4 gap-2">
-          {OTP_DIGITS.map((digit) => (
+  if (step === "VERIFY_OTP") {
+    return (
+      <form onSubmit={handleVerifyOtp} className="space-y-4">
+        <div className="flex items-center justify-between mb-4">
+          <p className="text-sm text-slate-400">
+            Code sent to {countryCode} {mobile}
+          </p>
+          <button
+            type="button"
+            onClick={handleEditNumber}
+            className="text-xs text-purple-400 hover:text-purple-300"
+          >
+            Edit
+          </button>
+        </div>
+
+        <div className="grid grid-cols-4 gap-3">
+          {[0, 1, 2, 3].map((index) => (
             <input
-              key={`otp-${digit}`}
+              key={index}
+              ref={(el) => (otpRefs.current[index] = el)}
               type="text"
               inputMode="numeric"
               maxLength={1}
-              autoComplete="one-time-code"
-              value={form.otp[digit]}
-              onChange={(event) => {
-                const next = event.target.value
-                  .split("")
-                  .filter((char) => /\d/.test(char))
-                  .join("");
-                setForm((prev) => {
-                  const updated = [...prev.otp];
-                  updated[digit] = next;
-                  return { ...prev, otp: updated };
-                });
-              }}
-              className={`h-12 rounded-xl border bg-slate-950 text-center text-base font-semibold text-white focus:border-brand-500 focus:outline-none ${
-                errors.otp ? "border-rose-500" : "border-slate-700"
-              }`}
-              aria-label={`OTP digit ${digit + 1}`}
+              value={otp[index]}
+              onChange={(e) => handleOtpChange(index, e.target.value)}
+              onKeyDown={(e) => handleKeyDown(index, e)}
+              className="h-14 text-center text-2xl font-bold rounded-xl border-2 border-slate-700 bg-slate-900 text-white focus:border-purple-500 focus:outline-none"
             />
           ))}
         </div>
-        {errors.otp ? (
-          <p className="text-xs text-rose-400" id="otp-error">
-            {errors.otp}
-          </p>
-        ) : null}
+
+        {error && <p className="text-sm text-red-400 text-center">{error}</p>}
+
+        <button
+          type="submit"
+          disabled={loading || otp.join("").length !== 4}
+          className="w-full py-3 rounded-xl font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed bg-gradient-to-r from-purple-600 via-fuchsia-500 to-pink-500 text-white hover:opacity-90"
+        >
+          {loading ? "Verifying..." : "Verify OTP"}
+        </button>
+
+        <div className="text-center">
+          {resendTimer > 0 ? (
+            <p className="text-sm text-slate-500">
+              Resend OTP in {resendTimer}s
+            </p>
+          ) : (
+            <button
+              type="button"
+              onClick={handleResend}
+              className="text-sm text-purple-400 hover:text-purple-300"
+            >
+              Resend OTP
+            </button>
+          )}
+        </div>
+      </form>
+    );
+  }
+
+  return (
+    <form onSubmit={handleSendOtp} className="space-y-4">
+      <div>
+        <label className="block text-sm font-medium text-slate-300 mb-2">
+          Country
+        </label>
+        <select
+          value={countryCode}
+          onChange={(e) => setCountryCode(e.target.value)}
+          className="w-full px-4 py-3 rounded-xl border-2 border-slate-700 bg-slate-900 text-white focus:border-purple-500 focus:outline-none"
+        >
+          {COUNTRY_CODES.map((country) => (
+            <option key={country.code} value={country.code}>
+              {country.flag} {country.label} ({country.code})
+            </option>
+          ))}
+        </select>
       </div>
+
+      <div>
+        <label className="block text-sm font-medium text-slate-300 mb-2">
+          Mobile Number
+        </label>
+        <input
+          type="tel"
+          value={mobile}
+          onChange={(e) =>
+            setMobile(e.target.value.replace(/\D/g, "").slice(0, 10))
+          }
+          placeholder="9876543210"
+          className="w-full px-4 py-3 rounded-xl border-2 border-slate-700 bg-slate-900 text-white placeholder:text-slate-600 focus:border-purple-500 focus:outline-none"
+          maxLength={10}
+        />
+        <p className="text-xs text-slate-500 mt-1">
+          Enter 10-digit mobile number
+        </p>
+      </div>
+
+      {error && <p className="text-sm text-red-400">{error}</p>}
 
       <button
         type="submit"
-        disabled={!isMobileValid}
-        className={`w-full rounded-xl px-4 py-3 text-sm font-semibold text-white transition ${
-          isMobileValid
-            ? "bg-linear-to-r from-brand-500 via-fuchsia-500 to-amber-400 hover:opacity-90"
-            : "cursor-not-allowed bg-slate-800 text-slate-500"
-        }`}
+        disabled={loading || mobile.length !== 10}
+        className="w-full py-3 rounded-xl font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed bg-gradient-to-r from-purple-600 via-fuchsia-500 to-pink-500 text-white hover:opacity-90"
       >
-        Send OTP
+        {loading ? "Sending..." : "Send OTP"}
       </button>
 
-      <p className="text-xs text-slate-500">
-        By continuing, you agree to receive transactional messages.
+      <p className="text-xs text-slate-500 text-center">
+        You will receive a 4-digit verification code
       </p>
-
-      {status ? <p className="text-xs text-emerald-400">{status}</p> : null}
     </form>
   );
 }
