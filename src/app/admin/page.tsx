@@ -34,6 +34,7 @@ export default function AdminDashboard() {
   const [initializing, setInitializing] = useState(true);
   const [error, setError] = useState("");
   const [apiKey, setApiKey] = useState("");
+  const [showKey, setShowKey] = useState(false);
   const [authenticated, setAuthenticated] = useState(false);
   const [filter, setFilter] = useState<string>("all");
   const [validatedApiKey, setValidatedApiKey] = useState("");
@@ -333,19 +334,58 @@ export default function AdminDashboard() {
               <label className="block text-sm font-medium text-slate-300 mb-2">
                 Admin API Key
               </label>
-              <input
-                type="password"
-                value={apiKey}
-                onChange={(e) => {
-                  setApiKey(e.target.value);
-                  setError("");
-                }}
-                placeholder="Enter your admin API key"
-                className="w-full px-4 py-3 rounded-xl border-2 border-slate-700 bg-slate-900 text-white placeholder:text-slate-600 focus:border-purple-500 focus:outline-none"
-                required
-                autoFocus
-                disabled={loading}
-              />
+              <div className="relative">
+                <input
+                  type={showKey ? "text" : "password"}
+                  value={apiKey}
+                  onChange={(e) => {
+                    setApiKey(e.target.value);
+                    setError("");
+                  }}
+                  placeholder="Enter your admin API key"
+                  className="w-full px-4 py-3 rounded-xl border-2 border-slate-700 bg-slate-900 text-white placeholder:text-slate-600 focus:border-purple-500 focus:outline-none"
+                  required
+                  autoFocus
+                  disabled={loading}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowKey((s) => !s)}
+                  className="absolute inset-y-0 right-3 flex items-center text-slate-400 hover:text-slate-200"
+                >
+                  {showKey ? (
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-5 w-5"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M1 1l22 22" />
+                      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-5.523 0-10-4.477-10-10 0-2.364.8-4.535 2.119-6.238" />
+                      <path d="M6.88 6.88A3.5 3.5 0 0 0 12 14.12" />
+                      <path d="M12 12l3 3" />
+                    </svg>
+                  ) : (
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-5 w-5"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                      <circle cx="12" cy="12" r="3" />
+                    </svg>
+                  )}
+                </button>
+              </div>
             </div>
 
             {error && (
