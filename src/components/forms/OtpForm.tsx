@@ -195,7 +195,7 @@ export default function OtpForm() {
           {[0, 1, 2, 3].map((index) => (
             <input
               key={index}
-              ref={(el) => (otpRefs.current[index] = el)}
+              ref={(el) => { if (el) otpRefs.current[index] = el; }}
               type="text"
               inputMode="numeric"
               maxLength={1}
