@@ -50,8 +50,10 @@ export default function ContactForm() {
       nextErrors.service = "Please mention a service.";
     }
 
-    if (!form.message.trim()) {
-      nextErrors.message = "Please enter a message.";
+    // message is optional; only validate if provided
+    // we don't enforce a strict length since it's not important
+    // but trim any leading/trailing whitespace
+    if (form.message && form.message.trim().length > 0 && form.message.trim().length < 5) {
     }
 
     setErrors(nextErrors);
@@ -60,14 +62,25 @@ export default function ContactForm() {
 
   const handleSubmit = async (event: { preventDefault: () => void }) => {
     event.preventDefault();
+    setStatus("");
     if (validate()) {
-      const response = await fetch("/api/contact", {
-        // Actually calls API!
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
-      });
-      // ... handles response and saves to database
+      try {
+        const response = await fetch("/api/contact", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(form),
+        });
+        const data = await response.json();
+        if (response.ok) {
+          setStatus(data.message || "Thanks! We will get in touch with you shortly.");
+          setForm({ name: "", email: "", phone: "", service: "", message: "" });
+          setErrors({});
+        } else {
+          setStatus(data.error || "Submission failed. Please try again.");
+        }
+      } catch (err) {
+        setStatus("Submission failed. Please try again.");
+      }
     }
   };
 
@@ -173,6 +186,12 @@ export default function ContactForm() {
           placeholder="Phone Number"
           value={form.phone}
           onChange={handleChange("phone")}
+          onInput={(e) => {
+            // strip non-numeric characters so text can't be entered
+            const input = e.currentTarget as HTMLInputElement;
+            input.value = input.value.replace(/\D/g, "");
+            setForm((prev) => ({ ...prev, phone: input.value }));
+          }}
           className={inputClass("phone")}
           aria-invalid={Boolean(errors.phone)}
           aria-describedby={errors.phone ? "contact-phone-error" : undefined}
