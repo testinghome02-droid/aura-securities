@@ -37,5 +37,6 @@
   },
   "author": "",
   "license": "ISC",
-  "description": ""
+  "description": "## Your Current Project Structure:",
+  "main": "postcss.config.js"
 }

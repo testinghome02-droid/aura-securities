@@ -1,16 +1,12 @@
-// Prisma Schema for AURA Securities
-// Location: prisma/schema.prisma
-
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = "file:./dev.db"
+  provider = "postgresql"  // CHANGED from "sqlite"
+  url      = env("DATABASE_URL")
 }
 
-// For OTP verified contacts
 model Contact {
   id          String   @id @default(cuid())
   countryCode String
@@ -37,7 +33,6 @@ model OtpAttempt {
   @@index([expiresAt])
 }
 
-// NEW: For Contact Form submissions
 model ContactSubmission {
   id        String   @id @default(cuid())
   name      String
@@ -45,7 +40,7 @@ model ContactSubmission {
   phone     String
   service   String
   message   String
-  status    String   @default("new") // new, contacted, closed
+  status    String   @default("new")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
